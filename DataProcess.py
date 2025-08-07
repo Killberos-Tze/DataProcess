@@ -17,7 +17,7 @@ def convert_time(timeunit,newtimeunit):
 def convert_prefix(prefix='',newprefix='n',power=1):
 	return prefixes[prefix]**power/prefixes[newprefix]**power
 
-def convert_units(data,prefix,newprefix):
+def convert_value(data,prefix,newprefix):
     return data*convert_prefix(prefix,newprefix)
 
 #quantity per unit area
@@ -33,8 +33,8 @@ def convert_speed(speed,oldspeed='m/s',newspeed='km/h'):
     
 #mutable approach
 #think about keyword prefix or unit_prefix
-def convert_wavelength(data,newunit):
-    data['#data_table'][:,0]=convert_units(data['#data_table'][:,0], data['#data_summary']['x1_unit'][0:-1], newunit[0:-1])
+def convert_unit(data,newunit):
+    data['#data_table'][:,0]=convert_value(data['#data_table'][:,0], data['#data_summary']['x1_unit'][0:-1], newunit[0:-1])
     data['#data_summary']['x1_unit']=newunit
 
 
