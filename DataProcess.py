@@ -33,9 +33,12 @@ def convert_speed(speed,oldspeed='m/s',newspeed='km/h'):
     
 #mutable approach
 #think about keyword prefix or unit_prefix
-def convert_unit(data,newunit):
-    data['#data_table'][:,0]=convert_value(data['#data_table'][:,0], data['#data_summary']['x1_unit'][0:-1], newunit[0:-1])
-    data['#data_summary']['x1_unit']=newunit
+def convert_unit(data,newprefix,column):
+    if data['#data_summary'][f'{column}_col']=='#data_table':
+        data['#data_table']=convert_value(data['#data_table'], data['#data_summary'][f'{column}_prefix'], newprefix)
+    else:
+        data['#data_table'][:,data['#data_summary'][f"{column}_col"]]=convert_value(data['#data_table'][:,data['#data_summary'][f"{column}_col"]], data['#data_summary'][f'{column}_prefix'], newprefix)
+    data['#data_summary'][f'{column}_prefix']=newprefix
 
 
 #number of points that you are averaging is 2*n+1 if len(array)-n>i>n
@@ -46,8 +49,13 @@ def mov_average(inarray,n):
     for i in range(0,len(inarray)):
         imin=max(0,i-n)
         imax=min(len(inarray),i+n+1)
-        avg_array.append(sum(array[imin:imax]/(imax-imin)))
+        avg_array.append(sum(inarray[imin:imax])/(imax-imin))
     return array(avg_array)
+
+def average_ihtm(A,n,column):
+    out=copy_ihtm(A)
+    out['#data_table'][:,out["#data_summary"][f"{column}_col"]]=mov_average(out['#data_table'][:,out["#data_summary"][f"{column}_col"]],n)
+    return out
 
 #it is expected you get [[xi,yi]] and that wavelegth is with same unit
 def numply_at_same_x(A,B):
@@ -65,10 +73,19 @@ def numply_at_same_x(A,B):
 #here you work with your dictionary object
 def multiply_at_same_x(A,B):
     out={}
-    convert_wavelength(A,'nm')
-    convert_wavelength(B,'nm')
+    convert_unit(A,'n')
+    convert_unit(B,'n')
     out['#data_table']=numply_at_same_x(A['#data_table'],B['#data_table'])
     #you need deep copy
+    out['#data_summary']={}
+    for keyword,item in A['#data_summary'].items():
+        out['#data_summary'][keyword]=item
+    out['#data_summary']['tot_col'],out['#data_summary']['tot_row']=shape(out['#data_table'])
+    return out
+
+def copy_ihtm(A):
+    out={}
+    out['#data_table']=array(A['#data_table'])
     out['#data_summary']={}
     for keyword,item in A['#data_summary'].items():
         out['#data_summary'][keyword]=item
