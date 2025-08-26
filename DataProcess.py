@@ -5,7 +5,7 @@ Created on Mon Jun 24 07:19:56 2024
 
 @author: tze
 """
-from numpy import array,shape, arange
+from numpy import empty,shape, arange, array
 from scipy.interpolate import interp1d
 
 prefixes={'':1,'d':1e-1, 'c':1e-2, 'm':1e-3,'μ':1e-6,'n':1e-9,'p':1e-12,'f':1e-15, 'k':1e3, 'M':1e6}
@@ -33,7 +33,7 @@ def convert_speed(speed,oldspeed='m/s',newspeed='km/h'):
     
 #mutable approach
 #think about keyword prefix or unit_prefix
-def convert_unit(data,newprefix,column):
+def convert_unit_IHTM(data,newprefix,column):
     if data['#data_summary'][f'{column}_col']=='#data_table':
         data['#data_table']=convert_value(data['#data_table'], data['#data_summary'][f'{column}_prefix'], newprefix)
     else:
@@ -52,9 +52,10 @@ def mov_average(inarray,n):
         avg_array.append(sum(inarray[imin:imax])/(imax-imin))
     return array(avg_array)
 
-def average_ihtm(A,n,column):
-    out=copy_ihtm(A)
+def average_IHTM(A,n,column):#n points to average, column to average
+    out=copy_IHTM(A)
     out['#data_table'][:,out["#data_summary"][f"{column}_col"]]=mov_average(out['#data_table'][:,out["#data_summary"][f"{column}_col"]],n)
+    out['#data_summary'][f"{column}_label"]=out['#data_summary'][f"{column}_label"]+'_avg'
     return out
 
 #it is expected you get [[xi,yi]] and that wavelegth is with same unit
@@ -66,24 +67,57 @@ def numply_at_same_x(A,B):
     bfit = interp1d(B[:,0], B[:,1])
     x=arange(xmin,xmax+xstep,xstep)
     y=afit(x)*bfit(x)
-    out=array((len(x),2))
+    out=empty((len(x),2))
+    out[:,0]=x
+    out[:,1]=y
+    return out
+
+def numdiv_at_same_x(A,B):
+    xmin=max(min(A[:,0]),min(B[:,0]))
+    xmax=min(max(A[:,0]),max(B[:,0]))
+    xstep=min(A[:,0][1]-A[:,0][0],B[:,0][1]-B[:,0][0])
+    afit = interp1d(A[:,0], A[:,1])
+    bfit = interp1d(B[:,0], B[:,1])
+    x=arange(xmin,xmax+xstep,xstep)
+    y=afit(x)/bfit(x)
+    out=empty((len(x),2))
     out[:,0]=x
     out[:,1]=y
     return out
 #here you work with your dictionary object
-def multiply_at_same_x(A,B):
+def multiply_2col_IHTM(A,B):#ihtm A and B have to have same x units and same y units
     out={}
-    convert_unit(A,'n')
-    convert_unit(B,'n')
-    out['#data_table']=numply_at_same_x(A['#data_table'],B['#data_table'])
-    #you need deep copy
-    out['#data_summary']={}
-    for keyword,item in A['#data_summary'].items():
-        out['#data_summary'][keyword]=item
-    out['#data_summary']['tot_col'],out['#data_summary']['tot_row']=shape(out['#data_table'])
+    out['error']=''
+    if A['#data_summary']['tot_col']!=B['#data_summary']['tot_col'] and B['#data_summary']['tot_col']!=2:
+        out['error']='wrong number of columns'
+    if A['#data_summary']['x1_prefix']!=B['#data_summary']['x1_prefix'] or A['#data_summary']['y1_prefix']!=B['#data_summary']['y1_prefix']:
+        out['error']='prefixes do not match'
+    if A['#data_summary']['x1_prefix']==B['#data_summary']['x1_prefix'] and A['#data_summary']['y1_prefix']==B['#data_summary']['y1_prefix']: 
+        out['#data_table']=numply_at_same_x(A['#data_table'],B['#data_table'])
+        #you need deep copy
+        out['#data_summary']={}
+        for keyword,item in A['#data_summary'].items():
+            out['#data_summary'][keyword]=item
+        out['#data_summary']['tot_col'],out['#data_summary']['tot_row']=shape(out['#data_table'])
     return out
 
-def copy_ihtm(A):
+def divide_2col_IHTM(A,B):
+    out={}
+    out['error']=''
+    if A['#data_summary']['tot_col']!=B['#data_summary']['tot_col'] and B['#data_summary']['tot_col']!=2:
+        out['error']='wrong number of columns'
+    if A['#data_summary']['x1_prefix']!=B['#data_summary']['x1_prefix'] or A['#data_summary']['y1_prefix']!=B['#data_summary']['y1_prefix']:
+        out['error']='prefixes do not match'
+    if A['#data_summary']['x1_prefix']==B['#data_summary']['x1_prefix'] and A['#data_summary']['y1_prefix']==B['#data_summary']['y1_prefix']: 
+        out['#data_table']=numdiv_at_same_x(A['#data_table'],B['#data_table'])
+        #you need deep copy
+        out['#data_summary']={}
+        for keyword,item in A['#data_summary'].items():
+            out['#data_summary'][keyword]=item
+        out['#data_summary']['tot_col'],out['#data_summary']['tot_row']=shape(out['#data_table'])
+    return out
+
+def copy_IHTM(A):
     out={}
     out['#data_table']=array(A['#data_table'])
     out['#data_summary']={}
@@ -92,8 +126,8 @@ def copy_ihtm(A):
     out['#data_summary']['tot_col'],out['#data_summary']['tot_row']=shape(out['#data_table'])
     return out
 
-def absolute_reflectance(Data, Rel_reference, Abs_reference):
-    return multiply_at_same_x(multiply_at_same_x(Data, Rel_reference),Abs_reference)
+def absolute_reflectance_IHTM(Data, Rel_reference, Abs_reference):
+    return multiply_2col_IHTM(divide_2col_IHTM(Data, Rel_reference),Abs_reference)
 
 """    
 
