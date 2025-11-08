@@ -75,7 +75,7 @@ def numply_at_same_x(A,B):
 def absorb_at_same_x(A,B):
     xmin=max(min(A[:,0]),min(B[:,0]))
     xmax=min(max(A[:,0]),max(B[:,0]))
-    xstep=min(A[:,0][1]-A[:,0][0],B[:,0][1]-B[:,0][0])
+    xstep=min(abs(A[:,0][1]-A[:,0][0]),abs(B[:,0][1]-B[:,0][0]))
     afit = interp1d(A[:,0], A[:,1])
     bfit = interp1d(B[:,0], B[:,1])
     x=arange(xmin,xmax+xstep,xstep)
@@ -146,9 +146,79 @@ def absorbance_IHTM(A,B):
         out['#data_summary']['tot_col'],out['#data_summary']['tot_row']=shape(out['#data_table'])
         out['#data_summary']['y1_name']='Absorbance'
         if 'R01' in out['#data_summary']['y1_label']:
-            out['#data_summary']['y1_label']=out['#data_summary']['y1_label'].replace('R01','A')
+            out['#data_summary']['y1_label']=out['#data_summary']['y1_label'].replace('R0','A')
         elif 'T01' in out['#data_summary']['y1_label']:
-            out['#data_summary']['y1_label']=out['#data_summary']['y1_label'].replace('T01','A')
+            out['#data_summary']['y1_label']=out['#data_summary']['y1_label'].replace('T0','A')
         else:
             out['#data_summary']['y1_label']=out['#data_summary']['y1_label']+'_A'
     return out
+#help function that converts interval of numbers into array [intervalmin,intervalmax] input should be an array or single number
+def process_interval(interval):
+    if type(interval)==float or type(interval)==int:
+        a=interval
+        b=interval
+    elif len(interval)==1:
+        a=interval[0]
+        b=interval[0]
+    elif len(interval)>1:
+        a=min(interval)
+        b=max(interval)
+    correctinterval=[]
+    correctinterval.append(a)
+    correctinterval.append(b)
+    return correctinterval
+
+#determines if the values in the array are within, below or above interval, it is assumed that values in the testarray are monotonous increasing or decreasing
+#interval should be [xmin.xmax]
+def fill_state(xarray,interval):
+    state=[]
+    for value in xarray:
+        if interval[0]<=value and value<=interval[1]:
+            state.append(0)#zero if value within interval
+        elif value<interval[0]:
+            state.append(-1)#-1 if value is below interval
+        elif interval[1]<value:
+            state.append(1)#1 if value is above interval
+    #create artifical crossing at the end of state array and one element extra compared to testarray
+    if state[-1]==0:
+        state.append(1)
+    else:
+        state.append(state[-1])
+    return state
+
+def find_start_end(state):
+    start=[]
+    if state[0]==0:
+        start.append(0)
+    end=[]
+    for ii in range(1,len(state)):
+        if state[ii-1]==0 and state[ii]!=0:#if you were within interval and you leave it
+            end.append(ii)
+        elif state[ii-1]!=0 and state[ii]==0:#if you enter interval
+            start.append(ii)
+        #if you cross over interval in index+1 important for case that xmin == xmax  for interval border
+        elif (state[ii-1]<0 and state[ii]>0) or (0<state[ii-1] and state[ii]<0):
+            start.append(ii-1)
+            end.append(ii+1)
+    #start is a list of indexes when you enter interval
+    #end is also list of indexes when you leave interval
+    return start,end
+
+def npfind_max_index(A,xmax):#it is assumed that first column is x column
+    imax=sum(A[:0]<=xmax)
+    out=array(A[0:imax,:])
+    return out
+
+def npfind_min_index(A,xmin):#it is assumed that first column is x column
+    imin=sum(xmin<A[:0])
+    out=array(A[imin:,:])
+    return out
+
+def cut_IHTM_right(A,xmax):
+    imax=npfind_max_index(A['#data_table'],xmax)
+
+def cut_IHTM_left(A,xmin):
+    pass
+
+def rotate_IHTM(A,xmax,xmin):
+    pass
